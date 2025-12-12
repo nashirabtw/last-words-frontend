@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Admin — Last-Words</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body {
+    background:black;
+    color:white;
+    font-family:Arial;
+    padding:20px;
+}
+table {
+    width:100%;
+    border-collapse:collapse;
+    margin-top:20px;
+}
+td, th {
+    border:1px solid #444;
+    padding:10px;
+}
+input {
+    margin-top:10px;
+    padding:10px;
+    width:250px;
+}
+button {
+    margin-left:10px;
+    padding:10px 15px;
+}
+</style>
+</head>
+
+<body>
+
+<h2>Admin Login</h2>
+
+<input id="user" placeholder="username">
+<input id="pass" placeholder="password" type="password">
+<button onclick="login()">Login</button>
+
+<div id="panel" style="display:none;">
+    <h3>Messages</h3>
+    <table id="msgs"></table>
+</div>
+
+<script>
+const API="https://last-words-backend.onrender.com";
+let adminToken=null;
+
+function login() {
+    fetch(API+"/admin/login",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+            username:document.getElementById("user").value,
+            password:document.getElementById("pass").value
+        })
+    }).then(r=>r.json()).then(d=>{
+        adminToken=d.admin_token;
+        load();
+    });
+}
+
+function load() {
+    document.getElementById("panel").style.display="block";
+    fetch(API+"/admin/messages",{
+        headers:{"x-admin-token":adminToken}
+    })
+    .then(r=>r.json())
+    .then(data=>{
+        let html="<tr><th>ID</th><th>Name</th><th>Message</th><th>Country</th><th>Emoji</th></tr>";
+        data.forEach(x=>{
+            html+=`<tr>
+                <td>${x.id}</td>
+                <td>${x.name}</td>
+                <td>${x.message}</td>
+                <td>${x.country}</td>
+                <td>${x.emoji}</td>
+            </tr>`;
+        });
+        document.getElementById("msgs").innerHTML=html;
+    });
+}
+</script>
+
+</body>
+</html>
