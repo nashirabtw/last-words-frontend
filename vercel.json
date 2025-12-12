@@ -1,5 +1,4 @@
 {
-  "cleanUrls": true,
   "rewrites": [
     { "source": "/map", "destination": "/map.html" },
     { "source": "/admin", "destination": "/admin.html" }
