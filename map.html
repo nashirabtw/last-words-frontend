@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Last-Words — Map</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+<style>
+body, html {
+    margin:0; padding:0;
+    height:100%; width:100%;
+    background:black;
+    font-family:Arial, sans-serif;
+}
+#map {
+    width:100%; height:100%;
+}
+/* panel */
+#formPanel {
+    position:absolute;
+    top:0; right:0;
+    width:320px; height:100%;
+    background:rgba(0,0,0,0.8);
+    padding:20px;
+    color:white;
+    overflow-y:auto;
+    animation: slideIn 1s ease forwards;
+}
+@keyframes slideIn {
+    from {opacity:0; transform:translateX(40px);}
+    to {opacity:1; transform:translateX(0);}
+}
+input, textarea {
+    width:100%;
+    padding:10px;
+    margin-top:10px;
+    border-radius:6px;
+    border:none;
+}
+button {
+    margin-top:15px;
+    padding:12px;
+    width:100%;
+    background:white;
+    border:none;
+    border-radius:8px;
+    cursor:pointer;
+}
+#messageCount {
+    position:absolute;
+    top:15px; left:15px;
+    background:rgba(0,0,0,0.6);
+    padding:8px 15px;
+    border-radius:8px;
+    color:white;
+    z-index:9999;
+}
+/* popup éxito */
+#successPopup {
+    display:none;
+    position:fixed;
+    top:0; left:0;
+    width:100vw; height:100vh;
+    background:rgba(0,0,0,0.75);
+    backdrop-filter:blur(4px);
+    align-items:center;
+    justify-content:center;
+    z-index:999999;
+}
+#successPopup .box {
+    background:#111;
+    padding:30px;
+    border-radius:12px;
+    max-width:330px;
+    text-align:center;
+}
+</style>
+</head>
+
+<body>
+
+<div id="messageCount">🌍 Contando mensajes...</div>
+<div id="map"></div>
+
+<!-- PANEL -->
+<div id="formPanel">
+    <h3>Leave Your Message</h3>
+
+    <input id="name" placeholder="Your name">
+    <textarea id="message" rows="3" placeholder="Your message"></textarea>
+    <input id="country" placeholder="Country">
+    <input id="emoji" placeholder="Emoji (❤️)">
+    <input id="location" placeholder="Select a place on the map" readonly>
+
+    <button onclick="useCode()">Use VIP Code</button>
+
+    <div id="paypal-button-container" style="margin-top:10px;"></div>
+</div>
+
+<!-- POPUP -->
+<div id="successPopup">
+    <div class="box" style="color:white;">
+        <h2>💫 Thank you</h2>
+        <p>Your message is now part of the world.</p>
+        <button onclick="closePopup()">Close</button>
+    </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://www.paypal.com/sdk/js?client-id=YOUR_CLIENT_ID&currency=USD"></script>
+
+<script>
+const API="https://last-words-backend.onrender.com";
+
+// MAPA
+const map=L.map('map').setView([20,0],2);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+
+let pickedLat=null;
+let pickedLng=null;
+
+// Selección en mapa
+map.on("click", e=>{
+    pickedLat=e.latlng.lat;
+    pickedLng=e.latlng.lng;
+    document.getElementById("location").value=`${pickedLat.toFixed(4)}, ${pickedLng.toFixed(4)}`;
+});
+
+// Cargar mensajes
+fetch(API+"/messages").then(r=>r.json()).then(data=>{
+    data.forEach(m=>{
+        L.marker([m.latitude,m.longitude]).addTo(map)
+        .bindPopup(`<b>${m.emoji} ${m.name}</b><br>${m.message}<br><i>${m.country}</i>`);
+    });
+});
+
+// Contador
+async function count() {
+    let r=await fetch(API+"/messages");
+    let d=await r.json();
+    document.getElementById("messageCount").innerText=`🌍 Messages: ${d.length}`;
+}
+count();
+setInterval(count,15000);
+
+// popup
+function showPopup() {
+    document.getElementById("successPopup").style.display="flex";
+}
+function closePopup() {
+    document.getElementById("successPopup").style.display="none";
+}
+
+// VIP code
+function useCode() {
+    let code=prompt("Enter your VIP code:");
+    if(!code) return;
+    fetch(API+"/use-free-code",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({code})
+    })
+    .then(r=>r.json())
+    .then(d=>{
+        if(d.token) sendMessage(d.token);
+        else alert("Invalid or used code");
+    });
+}
+
+// PayPal
+paypal.Buttons({
+    style:{shape:"pill", color:"white", layout:"vertical"},
+    createOrder(){ return fetch(API+"/payment-success",{method:"POST"}).then(r=>r.json()).then(d=> d.token );},
+    onApprove(data){ sendMessage(data.orderID); }
+}).render("#paypal-button-container");
+
+// Enviar mensaje
+function sendMessage(token) {
+    let n=document.getElementById("name").value;
+    let m=document.getElementById("message").value;
+    let c=document.getElementById("country").value;
+    let e=document.getElementById("emoji").value;
+
+    fetch(API+"/send-message",{
+        method:"POST",
+        headers:{
+            "Content-Type":"application/json",
+            "x-payment-token":token
+        },
+        body:JSON.stringify({
+            name:n,
+            message:m,
+            country:c,
+            emoji:e,
+            latitude:pickedLat,
+            longitude:pickedLng
+        })
+    })
+    .then(r=>r.json())
+    .then(()=>{
+        showPopup();
+        setTimeout(()=>location.reload(),2500);
+    });
+}
+</script>
+
+</body>
+</html>
