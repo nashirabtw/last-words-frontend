@@ -1,87 +1,229 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
+<meta charset="UTF-8">
 <title>Last-Words</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+<!-- SEO básico -->
+<meta name="description" content="A global map of messages people never wanted to forget. Leave a message. Pin it to the world.">
+<meta name="keywords" content="last words, messages, world map, memories, anonymous messages">
+
+<!-- Font -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+
 <style>
-body, html {
-    margin: 0;
-    padding: 0;
-    height: 100%;
-    overflow: hidden;
-    background: black;
-    font-family: Arial, sans-serif;
-}
-/* estrellas */
-@keyframes stars {
-    from {transform:translateY(0);}
-    to {transform:translateY(-2000px);}
-}
-.stars {
-    width: 2px;
-    height: 2px;
-    background: white;
-    position: absolute;
-    animation: stars linear infinite;
-}
-#intro {
-    position: absolute;
-    top:0; left:0;
-    width:100%; height:100%;
-    background:rgba(0,0,0,0.85);
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    justify-content:center;
-    color:white;
-    text-align:center;
-    animation: fadein 2s ease forwards;
-}
-@keyframes fadein {
-    from {opacity:0;}
-    to {opacity:1;}
-}
-#enterBtn {
-    margin-top:30px;
-    padding:12px 25px;
-    border:none;
-    background:white;
-    border-radius:10px;
-    cursor:pointer;
-    font-size:18px;
-    transition:0.3s;
-}
-#enterBtn:hover {
-    transform:scale(1.06);
-}
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    body {
+        font-family: 'Inter', sans-serif;
+        background: radial-gradient(circle at top, #111 0%, #000 60%);
+        color: white;
+        min-height: 100vh;
+        overflow-x: hidden;
+    }
+
+    /* STAR BACKGROUND */
+    .stars {
+        position: fixed;
+        width: 100%;
+        height: 100%;
+        background: transparent;
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    .stars::after {
+        content: '';
+        position: absolute;
+        width: 2px;
+        height: 2px;
+        background: white;
+        box-shadow:
+            10vw 20vh white,
+            30vw 80vh white,
+            70vw 10vh white,
+            90vw 60vh white,
+            50vw 40vh white,
+            80vw 90vh white,
+            15vw 75vh white,
+            60vw 25vh white;
+        animation: twinkle 6s infinite alternate;
+        opacity: 0.6;
+    }
+
+    @keyframes twinkle {
+        from { opacity: 0.3; }
+        to { opacity: 0.8; }
+    }
+
+    /* HERO */
+    .hero {
+        position: relative;
+        z-index: 1;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        padding: 40px 20px;
+    }
+
+    .hero h1 {
+        font-size: clamp(2.5rem, 5vw, 4rem);
+        font-weight: 600;
+        margin-bottom: 20px;
+        letter-spacing: -1px;
+    }
+
+    .hero p {
+        font-size: 1.1rem;
+        max-width: 600px;
+        opacity: 0.75;
+        margin-bottom: 40px;
+        line-height: 1.6;
+    }
+
+    .hero button {
+        padding: 14px 40px;
+        border-radius: 40px;
+        border: none;
+        font-size: 1rem;
+        font-weight: 600;
+        background: white;
+        color: black;
+        cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .hero button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 30px rgba(255,255,255,0.2);
+    }
+
+    /* HOW IT WORKS */
+    .section {
+        padding: 80px 20px;
+        text-align: center;
+        z-index: 1;
+        position: relative;
+    }
+
+    .section h2 {
+        font-size: 2rem;
+        margin-bottom: 40px;
+        font-weight: 600;
+    }
+
+    .steps {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 40px;
+        max-width: 900px;
+        margin: 0 auto;
+    }
+
+    .step {
+        max-width: 220px;
+        opacity: 0.8;
+        font-size: 0.95rem;
+        line-height: 1.5;
+    }
+
+    .step span {
+        display: block;
+        font-size: 1.8rem;
+        margin-bottom: 10px;
+    }
+
+    /* PHILOSOPHY */
+    .philosophy {
+        max-width: 700px;
+        margin: 0 auto;
+        font-size: 1.05rem;
+        opacity: 0.75;
+        line-height: 1.7;
+    }
+
+    /* FOOTER */
+    footer {
+        padding: 40px 20px;
+        text-align: center;
+        font-size: 0.85rem;
+        opacity: 0.5;
+    }
+
+    footer a {
+        color: white;
+        opacity: 0.6;
+        margin: 0 10px;
+        text-decoration: none;
+    }
+
+    footer a:hover {
+        opacity: 1;
+    }
 </style>
 </head>
 
 <body>
 
-<div id="intro">
-    <h1 style="font-size:40px; margin-bottom:10px;">Last-Words</h1>
-    <p style="max-width:300px; opacity:0.9;">
-        Leave a message somewhere in the world. One last thought, one last feeling.
+<div class="stars"></div>
+
+<section class="hero">
+    <h1>Some words deserve a place on Earth.</h1>
+    <p>
+        Last-Words is a global map of messages people never wanted to forget.
+        Leave a message. Pin it to the world.
     </p>
-    <button id="enterBtn" onclick="enterMap()">Enter the Map</button>
-</div>
+    <button onclick="enterMap()">Enter the Map</button>
+</section>
+
+<section class="section">
+    <h2>How it works</h2>
+    <div class="steps">
+        <div class="step">
+            <span>📍</span>
+            Choose a place on the map.
+        </div>
+        <div class="step">
+            <span>✍️</span>
+            Write the message you want to leave.
+        </div>
+        <div class="step">
+            <span>🌍</span>
+            It stays on Earth forever.
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <h2>Why Last-Words?</h2>
+    <p class="philosophy">
+        Last-Words is not social media.<br><br>
+        It is a quiet place for words that mattered,
+        moments that changed us,
+        and things we never had the chance to say out loud.
+    </p>
+</section>
+
+<footer>
+    <a href="#">About</a>
+    <a href="#">FAQ</a>
+    <a href="#">Contact</a>
+    <br><br>
+    © Last-Words
+</footer>
 
 <script>
-// crear estrellas
-for(let i=0;i<150;i++){
-    let s=document.createElement("div");
-    s.className="stars";
-    s.style.top=Math.random()*100+"%";
-    s.style.left=Math.random()*100+"%";
-    s.style.animationDuration=5+Math.random()*10+"s";
-    document.body.appendChild(s);
-}
-// entrar al mapa
 function enterMap() {
-    window.location.href="map.html";
+    window.location.href = "map.html";
 }
 </script>
 
