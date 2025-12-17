@@ -14,7 +14,7 @@ body {
 
 input {
   padding:10px;
-  width:300px;
+  width:320px;
   background:#111;
   border:1px solid #333;
   color:white;
@@ -27,7 +27,7 @@ button {
   border:none;
   border-radius:6px;
   cursor:pointer;
-  margin-left:10px;
+  margin-top:10px;
 }
 
 .message {
@@ -38,6 +38,9 @@ button {
 small {
   color:#888;
 }
+.hidden {
+  opacity: 0.4;
+}
 </style>
 </head>
 
@@ -45,9 +48,10 @@ small {
 
 <h1>Admin — Last Words</h1>
 
-<p>Admin Token:</p>
+<p>Admin Token</p>
 <input id="token" placeholder="Enter admin token">
-<button onclick="loadMessages()">Load</button>
+<br>
+<button onclick="loadMessages()">Load messages</button>
 
 <div id="messages"></div>
 
@@ -68,31 +72,31 @@ async function loadMessages() {
 
   data.forEach(m => {
     const div = document.createElement("div");
-    div.className = "message";
+    div.className = "message " + (m.hidden ? "hidden" : "");
     div.innerHTML = `
       <p>${m.message}</p>
       <small>${m.country || ""} · ${m.created_at}</small><br>
-      <button onclick="deleteMessage(${m.id})">Delete</button>
+      ${m.hidden ? "<small>Hidden</small>" : `<button onclick="hideMessage(${m.id})">Hide</button>`}
     `;
     container.appendChild(div);
   });
 }
 
-async function deleteMessage(id) {
+async function hideMessage(id) {
   const token = document.getElementById("token").value;
 
-  if (!confirm("Delete this message?")) return;
+  if (!confirm("Hide this message from the public map?")) return;
 
   const res = await fetch(
-    "https://last-words-backend.onrender.com/admin/messages/" + id,
+    "https://last-words-backend.onrender.com/admin/messages/" + id + "/hide",
     {
-      method: "DELETE",
+      method: "PATCH",
       headers: { "x-admin-token": token }
     }
   );
 
   if (res.ok) loadMessages();
-  else alert("Error deleting");
+  else alert("Error hiding message");
 }
 </script>
 
