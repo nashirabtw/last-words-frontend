@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Last-Words — Mapa</title>
+<title>Last-Words — Map</title>
+
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 
 <style>
@@ -10,8 +11,9 @@
         margin: 0;
         padding: 0;
         background: #000;
-        font-family: Arial, sans-serif;
+        font-family: Inter, Arial, sans-serif;
         overflow: hidden;
+        color: #f5f5f5;
     }
 
     #container {
@@ -26,15 +28,24 @@
         z-index: 1;
     }
 
-    /* PANEL DERECHA */
+    /* PANEL */
     #panel {
         width: 350px;
         background: #0d0d0d;
         padding: 25px;
-        box-shadow: -2px 0 10px rgba(0,0,0,0.6);
+        box-shadow: -2px 0 20px rgba(0,0,0,0.7);
         z-index: 9999;
         overflow-y: auto;
-        color: white;
+    }
+
+    h2 {
+        font-weight: 400;
+        margin-bottom: 20px;
+    }
+
+    label {
+        font-size: 13px;
+        color: #bbb;
     }
 
     input, textarea {
@@ -44,8 +55,9 @@
         border: 1px solid #333;
         color: white;
         border-radius: 8px;
-        margin-top: 8px;
-        margin-bottom: 12px;
+        margin-top: 6px;
+        margin-bottom: 14px;
+        font-size: 14px;
     }
 
     textarea {
@@ -66,27 +78,22 @@
 
     .paypal-container {
         margin-top: 10px;
-        width: 100%;
     }
 
     /* Loader */
     #loader {
         position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
+        inset: 0;
         background: rgba(0,0,0,0.65);
         display: none;
         align-items: center;
         justify-content: center;
         z-index: 10000;
         font-size: 22px;
-        color: white;
         backdrop-filter: blur(4px);
     }
 
-    /* Mensaje bonito */
+    /* Success */
     #successBox {
         position: fixed;
         top: 50%;
@@ -97,155 +104,161 @@
         border-radius: 12px;
         display: none;
         text-align: center;
-        color: white;
-        box-shadow: 0 0 15px rgba(255,255,255,0.15);
+        box-shadow: 0 0 20px rgba(255,255,255,0.15);
         z-index: 10001;
     }
-</style>
 
+    /* 📍 MARKER */
+    .custom-marker {
+        font-size: 22px;
+        filter: drop-shadow(0 0 6px rgba(255,255,255,0.35));
+        transition: transform 0.2s ease;
+    }
+
+    .custom-marker:hover {
+        transform: scale(1.2);
+    }
+
+    /* POPUP */
+    .leaflet-popup-content-wrapper,
+    .leaflet-popup-tip {
+        background: #111;
+        color: #f5f5f5;
+        box-shadow: 0 0 20px rgba(0,0,0,0.7);
+        border-radius: 10px;
+    }
+</style>
 </head>
+
 <body>
 
 <div id="container">
     <div id="map"></div>
 
     <div id="panel">
-        <h2>Deja tu mensaje 🌍</h2>
+        <h2>Leave your words</h2>
 
-        <label>Nombre</label>
+        <label>Name</label>
         <input id="name" type="text">
 
-        <label>Mensaje</label>
+        <label>Message</label>
         <textarea id="message"></textarea>
 
-        <label>País</label>
+        <label>Country</label>
         <input id="country" type="text">
 
-        <label>Emoji (ej: ❤️)</label>
-        <input id="emoji" type="text">
-
-        <p style="font-size:12px;color:#bbb;">
-            Toca el mapa para elegir la ubicación.
+        <p style="font-size:12px;color:#888;">
+            Click on the map to choose the place.
         </p>
 
         <div id="paypal-button-container" class="paypal-container"></div>
 
-        <label>¿Tienes código especial?</label>
-        <input id="code-input" placeholder="Ingresa tu código">
-        <button onclick="useCode()">Usar código</button>
+        <label>Have a special code?</label>
+        <input id="code-input" placeholder="Enter your code">
+        <button onclick="useCode()">Use code</button>
 
-        <button onclick="publishMessage()">Publicar mensaje</button>
+        <button onclick="publishMessage()">Publish message</button>
     </div>
 </div>
 
-<!-- Loader -->
-<div id="loader">Publicando tu mensaje...</div>
-
-<!-- Mensaje bonito -->
-<div id="successBox">✨ Tu mensaje fue publicado ✨</div>
+<div id="loader">Publishing your message…</div>
+<div id="successBox">✨ Your message is now on the map ✨</div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script src="https://www.paypal.com/sdk/js?client-id=sb&currency=USD"></script>
 
 <script>
 /* ============================
-   MAPA
+   MAP
 ============================ */
 let map = L.map('map').setView([20, 0], 3);
 
-L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-    maxZoom: 19
-}).addTo(map);
+L.tileLayer(
+  "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+  { maxZoom: 19 }
+).addTo(map);
 
 let marker = null;
 
 map.on("click", function (e) {
     if (marker) map.removeLayer(marker);
 
-    marker = L.marker(e.latlng).addTo(map);
+    marker = L.marker(e.latlng, {
+        icon: L.divIcon({
+            className: "custom-marker",
+            html: "📍",
+            iconSize: [24, 24],
+            iconAnchor: [12, 24]
+        })
+    }).addTo(map);
+
     window.selectedLat = e.latlng.lat;
     window.selectedLng = e.latlng.lng;
 });
 
 /* ============================
-   LOADER Y ÉXITO
+   UI
 ============================ */
 function showLoader() {
-    document.getElementById("loader").style.display = "flex";
+    loader.style.display = "flex";
 }
 
 function hideLoader() {
-    document.getElementById("loader").style.display = "none";
+    loader.style.display = "none";
 }
 
 function showSuccess() {
-    const box = document.getElementById("successBox");
-    box.style.display = "block";
-    setTimeout(() => {
-        box.style.display = "none";
-    }, 2500);
+    successBox.style.display = "block";
+    setTimeout(() => successBox.style.display = "none", 2500);
 }
 
 /* ============================
    PAYPAL
 ============================ */
 paypal.Buttons({
-    createOrder: function (data, actions) {
-        return actions.order.create({
-            purchase_units: [{
-                amount: { value: "10.00" }
-            }]
-        });
-    },
-    onApprove: function (data, actions) {
-        return fetch("https://last-words-backend.onrender.com/payment-success", {
+    createOrder: (data, actions) => actions.order.create({
+        purchase_units: [{ amount: { value: "10.00" } }]
+    }),
+    onApprove: (data, actions) =>
+        fetch("https://last-words-backend.onrender.com/payment-success", {
             method: "POST"
         })
         .then(r => r.json())
         .then(data => {
             localStorage.setItem("message_token", data.token);
-            alert("Pago exitoso. Ahora puedes publicar tu mensaje.");
-        });
-    }
+            alert("Payment successful. You can now publish your message.");
+        })
 }).render("#paypal-button-container");
 
 /* ============================
-   USAR CÓDIGO
+   USE CODE
 ============================ */
 async function useCode() {
-    const code = document.getElementById("code-input").value;
-
     showLoader();
+
     const res = await fetch("https://last-words-backend.onrender.com/use-free-code", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code })
+        body: JSON.stringify({ code: code-input.value })
     });
 
     const data = await res.json();
     hideLoader();
 
-    if (!res.ok) {
-        alert(data.detail);
-        return;
-    }
+    if (!res.ok) return alert(data.detail);
 
     localStorage.setItem("message_token", data.token);
     showSuccess();
 }
 
 /* ============================
-   PUBLICAR MENSAJE
+   PUBLISH
 ============================ */
 async function publishMessage() {
-    showLoader();
-
     const token = localStorage.getItem("message_token");
+    if (!token) return alert("Please pay or use a code first.");
 
-    if (!token) {
-        hideLoader();
-        return alert("Primero paga o usa un código.");
-    }
+    showLoader();
 
     try {
         const res = await fetch("https://last-words-backend.onrender.com/send-message", {
@@ -255,30 +268,26 @@ async function publishMessage() {
                 "x-payment-token": token
             },
             body: JSON.stringify({
-                name: document.getElementById("name").value,
-                message: document.getElementById("message").value,
-                country: document.getElementById("country").value,
-                emoji: document.getElementById("emoji").value,
+                name: name.value,
+                message: message.value,
+                country: country.value,
+                emoji: "📍",
                 latitude: window.selectedLat,
                 longitude: window.selectedLng
             })
         });
 
         const data = await res.json();
-
         hideLoader();
 
-        if (!res.ok) {
-            alert(data.detail);
-            return;
-        }
+        if (!res.ok) return alert(data.detail);
 
         localStorage.removeItem("message_token");
         showSuccess();
 
-    } catch (err) {
+    } catch {
         hideLoader();
-        alert("Error inesperado");
+        alert("Unexpected error");
     }
 }
 </script>
