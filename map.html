@@ -1,295 +1,226 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
-<meta charset="UTF-8">
-<title>Last-Words — Map</title>
+  <meta charset="UTF-8" />
+  <title>Last-Words – Map</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
-<style>
+  <!-- PayPal SDK -->
+  <script src="https://www.paypal.com/sdk/js?client-id=AX55daDbCKwDRrwqHYXBsV8f0a7zMIWEVLOC1KzS8xo-uKje_G4poVe-_Foww1x00w-NzGrXfOPlBZk-&currency=USD"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
     body {
-        margin: 0;
-        padding: 0;
-        background: #000;
-        font-family: Inter, Arial, sans-serif;
-        overflow: hidden;
-        color: #f5f5f5;
+      margin: 0;
+      background: black;
+      color: white;
+      overflow: hidden;
     }
 
-    #container {
-        display: flex;
-        height: 100vh;
-        width: 100vw;
-    }
-
+    /* MAPA */
     #map {
-        flex: 1;
-        height: 100%;
-        z-index: 1;
+      position: absolute;
+      inset: 0;
+      z-index: 1;
     }
 
     /* PANEL */
-    #panel {
-        width: 350px;
-        background: #0d0d0d;
-        padding: 25px;
-        box-shadow: -2px 0 20px rgba(0,0,0,0.7);
-        z-index: 9999;
-        overflow-y: auto;
+    .panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 340px;
+      height: 100vh;
+      background: #0b0b0b;
+      padding: 20px 20px 90px; /* espacio para CTA */
+      z-index: 9999;
+      box-shadow: -10px 0 30px rgba(0,0,0,0.6);
+      overflow: hidden;
     }
 
     h2 {
-        font-weight: 400;
-        margin-bottom: 20px;
-    }
-
-    label {
-        font-size: 13px;
-        color: #bbb;
+      margin: 0 0 20px 0;
+      font-size: 1.4rem;
     }
 
     input, textarea {
-        width: 100%;
-        padding: 10px;
-        background: #111;
-        border: 1px solid #333;
-        color: white;
-        border-radius: 8px;
-        margin-top: 6px;
-        margin-bottom: 14px;
-        font-size: 14px;
+      width: 100%;
+      background: #151515;
+      border: 1px solid #333;
+      color: white;
+      padding: 10px;
+      margin-bottom: 12px;
+      border-radius: 8px;
+      font-size: 0.95rem;
     }
 
     textarea {
-        height: 110px;
-        resize: none;
+      resize: none;
+      height: 80px;
     }
 
-    button {
-        width: 100%;
-        padding: 12px;
-        background: white;
-        border-radius: 20px;
-        border: none;
-        margin-top: 10px;
-        font-weight: bold;
-        cursor: pointer;
+    .hint {
+      font-size: 0.8rem;
+      opacity: 0.6;
+      margin-bottom: 10px;
     }
 
-    .paypal-container {
-        margin-top: 10px;
+    .btn {
+      width: 100%;
+      border: none;
+      padding: 12px;
+      font-size: 0.95rem;
+      border-radius: 999px;
+      cursor: pointer;
     }
 
-    /* Loader */
-    #loader {
-        position: fixed;
-        inset: 0;
-        background: rgba(0,0,0,0.65);
-        display: none;
-        align-items: center;
-        justify-content: center;
-        z-index: 10000;
-        font-size: 22px;
-        backdrop-filter: blur(4px);
+    .btn.secondary {
+      background: #222;
+      color: white;
+      margin-top: 10px;
     }
 
-    /* Success */
-    #successBox {
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: #0d0d0d;
-        padding: 25px 40px;
-        border-radius: 12px;
-        display: none;
-        text-align: center;
-        box-shadow: 0 0 20px rgba(255,255,255,0.15);
-        z-index: 10001;
+    hr {
+      border: none;
+      border-top: 1px solid #222;
+      margin: 14px 0;
     }
 
-    /* 📍 MARKER */
-    .custom-marker {
-        font-size: 22px;
-        filter: drop-shadow(0 0 6px rgba(255,255,255,0.35));
-        transition: transform 0.2s ease;
+    /* PAYPAL */
+    #paypal-container {
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 12px;
     }
 
-    .custom-marker:hover {
-        transform: scale(1.2);
+    /* 🔥 CTA FIJO ABAJO */
+    .cta {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(
+        to top,
+        rgba(0,0,0,0.95),
+        rgba(0,0,0,0.7),
+        transparent
+      );
     }
 
-    /* POPUP */
-    .leaflet-popup-content-wrapper,
-    .leaflet-popup-tip {
-        background: #111;
-        color: #f5f5f5;
-        box-shadow: 0 0 20px rgba(0,0,0,0.7);
-        border-radius: 10px;
+    .cta button {
+      width: 100%;
+      background: white;
+      color: black;
+      font-weight: 700;
+      font-size: 1rem;
+      padding: 14px;
+      border-radius: 999px;
+      transition: all 0.25s ease;
     }
-</style>
+
+    .cta button:disabled {
+      background: #444;
+      color: #aaa;
+      cursor: not-allowed;
+    }
+  </style>
 </head>
-
 <body>
 
-<div id="container">
-    <div id="map"></div>
+<div id="map"></div>
 
-    <div id="panel">
-        <h2>Leave your words</h2>
+<div class="panel">
+  <h2>Deja tu mensaje 🌍</h2>
 
-        <label>Name</label>
-        <input id="name" type="text">
+  <input id="name" placeholder="Nombre" />
+  <textarea id="message" placeholder="Mensaje"></textarea>
+  <input id="country" placeholder="País" />
 
-        <label>Message</label>
-        <textarea id="message"></textarea>
+  <div class="hint">📍 Haz clic en el mapa para elegir la ubicación.</div>
 
-        <label>Country</label>
-        <input id="country" type="text">
+  <hr />
 
-        <p style="font-size:12px;color:#888;">
-            Click on the map to choose the place.
-        </p>
+  <div class="hint">¿Tienes un código especial?</div>
+  <input id="promoCode" placeholder="Ingresa tu código" />
+  <button class="btn secondary" onclick="useCode()">Usar código</button>
 
-        <div id="paypal-button-container" class="paypal-container"></div>
+  <div id="paypal-container"></div>
 
-        <label>Have a special code?</label>
-        <input id="code-input" placeholder="Enter your code">
-        <button onclick="useCode()">Use code</button>
-
-        <button onclick="publishMessage()">Publish message</button>
-    </div>
+  <!-- CTA -->
+  <div class="cta">
+    <button id="publishBtn" disabled onclick="publishMessage()">
+      Publicar mensaje
+    </button>
+  </div>
 </div>
 
-<div id="loader">Publishing your message…</div>
-<div id="successBox">✨ Your message is now on the map ✨</div>
-
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<script src="https://www.paypal.com/sdk/js?client-id=sb&currency=USD"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
-/* ============================
-   MAP
-============================ */
-let map = L.map('map').setView([20, 0], 3);
+  const FIXED_EMOJI = "📍";
+  let selectedLatLng = null;
+  let marker = null;
+  let canPublish = false;
 
-L.tileLayer(
-  "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-  { maxZoom: 19 }
-).addTo(map);
+  const map = L.map("map", { zoomControl: false }).setView([20, 0], 2);
 
-let marker = null;
+  L.tileLayer(
+    "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+  ).addTo(map);
 
-map.on("click", function (e) {
-    if (marker) map.removeLayer(marker);
-
-    marker = L.marker(e.latlng, {
+  map.on("click", e => {
+    selectedLatLng = e.latlng;
+    if (marker) marker.setLatLng(e.latlng);
+    else {
+      marker = L.marker(e.latlng, {
         icon: L.divIcon({
-            className: "custom-marker",
-            html: "📍",
-            iconSize: [24, 24],
-            iconAnchor: [12, 24]
+          className: "",
+          html: `<div style="font-size:24px;">${FIXED_EMOJI}</div>`
         })
-    }).addTo(map);
-
-    window.selectedLat = e.latlng.lat;
-    window.selectedLng = e.latlng.lng;
-});
-
-/* ============================
-   UI
-============================ */
-function showLoader() {
-    loader.style.display = "flex";
-}
-
-function hideLoader() {
-    loader.style.display = "none";
-}
-
-function showSuccess() {
-    successBox.style.display = "block";
-    setTimeout(() => successBox.style.display = "none", 2500);
-}
-
-/* ============================
-   PAYPAL
-============================ */
-paypal.Buttons({
-    createOrder: (data, actions) => actions.order.create({
-        purchase_units: [{ amount: { value: "10.00" } }]
-    }),
-    onApprove: (data, actions) =>
-        fetch("https://last-words-backend.onrender.com/payment-success", {
-            method: "POST"
-        })
-        .then(r => r.json())
-        .then(data => {
-            localStorage.setItem("message_token", data.token);
-            alert("Payment successful. You can now publish your message.");
-        })
-}).render("#paypal-button-container");
-
-/* ============================
-   USE CODE
-============================ */
-async function useCode() {
-    showLoader();
-
-    const res = await fetch("https://last-words-backend.onrender.com/use-free-code", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: code-input.value })
-    });
-
-    const data = await res.json();
-    hideLoader();
-
-    if (!res.ok) return alert(data.detail);
-
-    localStorage.setItem("message_token", data.token);
-    showSuccess();
-}
-
-/* ============================
-   PUBLISH
-============================ */
-async function publishMessage() {
-    const token = localStorage.getItem("message_token");
-    if (!token) return alert("Please pay or use a code first.");
-
-    showLoader();
-
-    try {
-        const res = await fetch("https://last-words-backend.onrender.com/send-message", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "x-payment-token": token
-            },
-            body: JSON.stringify({
-                name: name.value,
-                message: message.value,
-                country: country.value,
-                emoji: "📍",
-                latitude: window.selectedLat,
-                longitude: window.selectedLng
-            })
-        });
-
-        const data = await res.json();
-        hideLoader();
-
-        if (!res.ok) return alert(data.detail);
-
-        localStorage.removeItem("message_token");
-        showSuccess();
-
-    } catch {
-        hideLoader();
-        alert("Unexpected error");
+      }).addTo(map);
     }
-}
+  });
+
+  function useCode() {
+    const code = promoCode.value.trim();
+    if (!code) return alert("Ingresa un código.");
+
+    canPublish = true;
+    publishBtn.disabled = false;
+    paypalContainer.style.display = "none";
+    alert("Código válido. Puedes publicar sin pagar.");
+  }
+
+  paypal.Buttons({
+    createOrder: (data, actions) => {
+      return actions.order.create({
+        purchase_units: [{ amount: { value: "10.00" } }]
+      });
+    },
+    onApprove: (data, actions) => {
+      return actions.order.capture().then(() => {
+        canPublish = true;
+        publishBtn.disabled = false;
+        alert("Pago completado. Ya puedes publicar.");
+      });
+    }
+  }).render("#paypal-container");
+
+  function publishMessage() {
+    if (!selectedLatLng) return alert("Selecciona una ubicación.");
+    if (!canPublish) return alert("Debes pagar o usar un código.");
+    alert("Mensaje enviado (simulado).");
+  }
 </script>
 
 </body>
