@@ -69,7 +69,6 @@
       margin-bottom: 10px;
       line-height: 1.25;
     }
-
     .hint.ok { color: #b7ffb7; opacity: 1; }
     .hint.bad { color: #ffb7b7; opacity: 1; }
 
@@ -150,8 +149,13 @@
   <script>
     /* ================= CONFIG ================= */
     const FIXED_EMOJI = "📍";
-    const BACKEND_BASE_URL = "";       // deja vacío si backend está en el mismo dominio
-    const SAVE_MESSAGE_PATH = "/messages"; // tu endpoint actual
+
+    // ✅ CAMBIO CLAVE: apunta al backend real (Render/FastAPI)
+    // Reemplaza esto por tu URL real:
+    const BACKEND_BASE_URL = "https://TU-BACKEND.onrender.com";
+
+    // Si tu backend usa otra ruta (ej: "/api/messages"), cámbiala aquí:
+    const SAVE_MESSAGE_PATH = "/messages";
 
     const PROMO_CODES = [
       "ST4RLI1","SOL1X0","STARVT9","MO33ON5","LIGHTRS7",
@@ -233,7 +237,7 @@
           promoAppliedCode = null;
 
           setStatus(codeStatus, "Payment completed.", "ok");
-          paypalContainer.style.display = "block"; // se queda, o puedes ocultarlo si quieres
+          paypalContainer.style.display = "block";
           updatePublishState();
         }),
 
@@ -275,7 +279,6 @@
 
     /* ================= PUBLISH ENABLE ================= */
     function updatePublishState() {
-      // extra: no dejes publicar si falta ubicación
       publishBtn.disabled = !(canPublish && selectedLatLng);
     }
 
@@ -301,7 +304,7 @@
         return;
       }
 
-      // Payload: incluye promoCode si se usó (CLAVE si backend lo requiere)
+      // ✅ Enviar promoCode si se usó (clave para backend)
       const payload = {
         name,
         message,
@@ -361,7 +364,6 @@
 
       setStatus(saveStatus, "Message saved ✓", "ok");
       alert("Message saved.");
-
       location.reload();
     }
 
