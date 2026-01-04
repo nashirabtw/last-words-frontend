@@ -55,6 +55,7 @@
     }
 
     .btn.secondary { background: #222; color: white; margin-top: 10px; }
+    .btn.secondary:disabled { opacity: 0.5; cursor: not-allowed; }
 
     #paypal-container {
       height: 52px;
@@ -90,12 +91,15 @@
       padding: 14px;
       border-radius: 999px;
       border: none;
+      transition: transform 0.15s ease;
     }
+    .cta button:active { transform: scale(0.99); }
 
     .cta button:disabled {
       background: #444;
       color: #aaa;
       cursor: not-allowed;
+      transform: none;
     }
   </style>
 </head>
@@ -116,7 +120,7 @@
 
   <div class="hint">Have a promo code?</div>
   <input id="promoCode" placeholder="Enter code" />
-  <button class="btn secondary" onclick="applyPromoCode()">Apply code</button>
+  <button class="btn secondary" id="applyCodeBtn" onclick="applyPromoCode()">Apply code</button>
   <div class="status" id="codeStatus"></div>
 
   <div id="paypal-container"></div>
@@ -134,7 +138,15 @@
   /* ================= CONFIG ================= */
   const FIXED_EMOJI = "📍";
 
-  // 🔐 TUS CÓDIGOS PROMOCIONALES (1 USO)
+  // ✅ Si tu backend está en otro dominio (Render, etc), pega aquí el URL:
+  // Ej: const BACKEND_BASE_URL = "https://tu-backend.onrender.com";
+  // Si está en el mismo dominio, déjalo vacío:
+  const BACKEND_BASE_URL = "";
+
+  // Endpoint para guardar mensajes
+  const SAVE_MESSAGE_PATH = "/messages";
+
+  // 🔐 Tus códigos promocionales (1 uso por navegador)
   const PROMO_CODES = [
     "ST4RLI1",
     "SOL1X0",
@@ -148,20 +160,27 @@
     "TQET5T0"
   ];
 
-  const USED_KEY = "usedPromoCodes_v2";
+  const USED_KEY = "usedPromoCodes_v3";
 
   /* ================= STATE ================= */
   let selectedLatLng = null;
   let marker = null;
-  let canPublish = false;
-  let promoAppliedCode = null;
+
+  let canPublish = false;          // true si pagó o aplicó promo
+  let promoAppliedCode = null;     // código aplicado (se marca como usado AL PUBLICAR)
 
   let usedCodes = JSON.parse(localStorage.getItem(USED_KEY) || "[]");
 
+  /* ================= ELEMENTS ================= */
   const publishBtn = document.getElementById("publishBtn");
   const paypalContainer = document.getElementById("paypal-container");
   const codeStatus = document.getElementById("codeStatus");
   const promoInput = document.getElementById("promoCode");
+  const applyBtn = document.getElementById("applyCodeBtn");
+
+  const nameEl = document.getElementById("name");
+  const messageEl = document.getElementById("message");
+  const countryEl = document.getElementById("country");
 
   /* ================= MAP ================= */
   const map = L.map("map", { zoomControl: false }).setView([20, 0], 2);
@@ -173,7 +192,7 @@
     if (marker) marker.setLatLng(e.latlng);
     else {
       marker = L.marker(e.latlng, {
-        icon: L.divIcon({ html: `<div style="font-size:24px;">${FIXED_EMOJI}</div>` })
+        icon: L.divIcon({ className: "", html: `<div style="font-size:24px;">${FIXED_EMOJI}</div>` })
       }).addTo(map);
     }
 
@@ -191,17 +210,26 @@
       return actions.order.capture().then(() => {
         canPublish = true;
         promoAppliedCode = null;
+
         codeStatus.textContent = "Payment completed. You can publish.";
         codeStatus.className = "status ok";
+
         updatePublishState();
       });
+    },
+    onError: (err) => {
+      console.error("PayPal error:", err);
+      codeStatus.textContent = "PayPal error. Try again.";
+      codeStatus.className = "status bad";
     }
   }).render("#paypal-container");
 
-  /* ================= PROMO CODE ================= */
+  /* ================= PROMO CODE (APPLY) ================= */
   function applyPromoCode() {
-    const code = promoInput.value.trim().toUpperCase();
+    const code = (promoInput.value || "").trim().toUpperCase();
+
     codeStatus.className = "status";
+    codeStatus.textContent = "";
 
     if (!code) {
       codeStatus.textContent = "Enter a code.";
@@ -221,8 +249,10 @@
       return;
     }
 
+    // ✅ Applied, but NOT consumed yet (only consumed when publishing)
     promoAppliedCode = code;
     canPublish = true;
+
     paypalContainer.style.display = "none";
 
     codeStatus.textContent = "Code applied ✓ One message unlocked.";
@@ -231,13 +261,44 @@
     updatePublishState();
   }
 
-  /* ================= ENABLE LOGIC ================= */
+  // Enter key applies code
+  promoInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") applyPromoCode();
+  });
+
+  /* ================= ENABLE RULE ================= */
   function updatePublishState() {
-    publishBtn.disabled = !(canPublish && selectedLatLng);
+    // Must have payment/promo AND a selected location
+    publishBtn.disabled = !(canPublish && !!selectedLatLng);
+  }
+
+  /* ================= SAVE TO BACKEND ================= */
+  async function saveMessageToBackend(payload) {
+    const url = `${BACKEND_BASE_URL}${SAVE_MESSAGE_PATH}`;
+
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      // If your backend uses cookies/auth on another domain, you might need:
+      // credentials: "include"
+    });
+
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      throw new Error(`Save failed (${res.status}). ${txt}`);
+    }
+
+    // We accept JSON or empty response
+    try {
+      return await res.json();
+    } catch {
+      return { ok: true };
+    }
   }
 
   /* ================= PUBLISH ================= */
-  function publishMessage() {
+  async function publishMessage() {
     if (!selectedLatLng) {
       alert("Select a location on the map.");
       return;
@@ -247,14 +308,72 @@
       return;
     }
 
-    if (promoAppliedCode) {
-      usedCodes.push(promoAppliedCode);
-      localStorage.setItem(USED_KEY, JSON.stringify(usedCodes));
-      promoAppliedCode = null;
+    // Basic validation (optional but helpful)
+    const name = (nameEl.value || "").trim();
+    const message = (messageEl.value || "").trim();
+    const country = (countryEl.value || "").trim();
+
+    if (!message) {
+      alert("Please write a message.");
+      return;
     }
 
-    alert("Message published (simulated).");
+    // Lock UI while saving
+    publishBtn.disabled = true;
+    applyBtn.disabled = true;
+
+    codeStatus.textContent = "Publishing...";
+    codeStatus.className = "status ok";
+
+    const payload = {
+      name,
+      message,
+      country,
+      emoji: FIXED_EMOJI,
+      lat: selectedLatLng.lat,
+      lng: selectedLatLng.lng
+    };
+
+    try {
+      // ✅ Save to backend
+      await saveMessageToBackend(payload);
+
+      // ✅ Consume promo code ONLY AFTER successful save
+      if (promoAppliedCode) {
+        usedCodes.push(promoAppliedCode);
+        localStorage.setItem(USED_KEY, JSON.stringify(usedCodes));
+        promoAppliedCode = null;
+      }
+
+      codeStatus.textContent = "Published ✓";
+      codeStatus.className = "status ok";
+
+      // Optional: clear form + reset map pin for next user
+      nameEl.value = "";
+      messageEl.value = "";
+      countryEl.value = "";
+      promoInput.value = "";
+
+      // Keep marker but require new payment/promo for another message
+      canPublish = false;
+      paypalContainer.style.display = "flex";
+      updatePublishState();
+
+      alert("Your message has been published.");
+    } catch (err) {
+      console.error(err);
+      codeStatus.textContent = "Could not publish (server issue).";
+      codeStatus.className = "status bad";
+      alert("It didn’t save. This is usually a backend URL/endpoint issue.");
+      // Re-enable based on current state
+      updatePublishState();
+    } finally {
+      applyBtn.disabled = false;
+    }
   }
+
+  // Initial
+  updatePublishState();
 </script>
 
 </body>
