@@ -39,7 +39,7 @@
       padding: 20px;
       z-index: 9999;
       box-shadow: -10px 0 30px rgba(0,0,0,0.6);
-      overflow-y: auto; /* 🔥 ahora puede hacer scroll si hace falta */
+      overflow-y: auto;
     }
 
     h2 {
@@ -65,9 +65,13 @@
 
     .hint {
       font-size: 0.8rem;
-      opacity: 0.6;
+      opacity: 0.75;
       margin-bottom: 10px;
+      line-height: 1.25;
     }
+
+    .hint.ok { color: #b7ffb7; opacity: 1; }
+    .hint.bad { color: #ffb7b7; opacity: 1; }
 
     .btn {
       width: 100%;
@@ -105,153 +109,264 @@
       font-size: 0.85rem;
       min-height: 18px;
       margin-top: 6px;
+      line-height: 1.25;
     }
 
     .status.ok { color: #b7ffb7; }
     .status.bad { color: #ffb7b7; }
   </style>
 </head>
+
 <body>
+  <div id="map"></div>
 
-<div id="map"></div>
+  <div class="panel">
+    <h2>Leave your message 🌍</h2>
 
-<div class="panel">
-  <h2>Leave your message 🌍</h2>
+    <input id="name" placeholder="Name" />
+    <textarea id="message" placeholder="Message"></textarea>
+    <input id="country" placeholder="Country" />
 
-  <input id="name" placeholder="Name" />
-  <textarea id="message" placeholder="Message"></textarea>
-  <input id="country" placeholder="Country" />
+    <div class="hint bad" id="locationHint">📍 Tap the map to choose the location.</div>
 
-  <div class="hint">📍 Tap the map to choose the location.</div>
+    <hr style="border:none;border-top:1px solid #222;margin:14px 0;">
 
-  <hr style="border:none;border-top:1px solid #222;margin:14px 0;">
+    <div class="hint">Have a promo code?</div>
+    <input id="promoCode" placeholder="Enter code" />
+    <button class="btn secondary" id="applyBtn" type="button">Apply code</button>
+    <div class="status" id="codeStatus"></div>
 
-  <div class="hint">Have a promo code?</div>
-  <input id="promoCode" placeholder="Enter code" />
-  <button class="btn secondary" onclick="applyPromoCode()">Apply code</button>
-  <div class="status" id="codeStatus"></div>
+    <div id="paypal-container"></div>
 
-  <div id="paypal-container"></div>
+    <button class="btn primary" id="publishBtn" disabled type="button">
+      Publish message
+    </button>
 
-  <!-- 🔥 BOTÓN SIEMPRE VISIBLE -->
-  <button class="btn primary" id="publishBtn" disabled onclick="publishMessage()">
-    Publish message
-  </button>
-</div>
+    <div class="status" id="saveStatus"></div>
+  </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<script>
-  /* ================= CONFIG ================= */
-  const FIXED_EMOJI = "📍";
-  const BACKEND_BASE_URL = ""; // deja vacío si backend está en el mismo dominio
-  const SAVE_MESSAGE_PATH = "/messages";
+  <script>
+    /* ================= CONFIG ================= */
+    const FIXED_EMOJI = "📍";
+    const BACKEND_BASE_URL = "";       // deja vacío si backend está en el mismo dominio
+    const SAVE_MESSAGE_PATH = "/messages"; // tu endpoint actual
 
-  const PROMO_CODES = [
-    "ST4RLI1","SOL1X0","STARVT9","MO33ON5","LIGHTRS7",
-    "SKYDD9","NOVIE2A2","GIFT4Y8L9","VI3PP8","TQET5T0"
-  ];
+    const PROMO_CODES = [
+      "ST4RLI1","SOL1X0","STARVT9","MO33ON5","LIGHTRS7",
+      "SKYDD9","NOVIE2A2","GIFT4Y8L9","VI3PP8","TQET5T0"
+    ];
 
-  const USED_KEY = "usedPromoCodes_final";
+    const USED_KEY = "usedPromoCodes_final";
 
-  let selectedLatLng = null;
-  let marker = null;
-  let canPublish = false;
-  let promoAppliedCode = null;
+    /* ================= ELEMENTS ================= */
+    const elName = document.getElementById("name");
+    const elMessage = document.getElementById("message");
+    const elCountry = document.getElementById("country");
+    const elPromo = document.getElementById("promoCode");
 
-  let usedCodes = JSON.parse(localStorage.getItem(USED_KEY) || "[]");
+    const publishBtn = document.getElementById("publishBtn");
+    const applyBtn = document.getElementById("applyBtn");
 
-  const publishBtn = document.getElementById("publishBtn");
-  const paypalContainer = document.getElementById("paypal-container");
-  const codeStatus = document.getElementById("codeStatus");
+    const paypalContainer = document.getElementById("paypal-container");
+    const codeStatus = document.getElementById("codeStatus");
+    const saveStatus = document.getElementById("saveStatus");
+    const locationHint = document.getElementById("locationHint");
 
-  /* MAP */
-  const map = L.map("map", { zoomControl: false }).setView([20, 0], 2);
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png").addTo(map);
-
-  map.on("click", e => {
-    selectedLatLng = e.latlng;
-    if (marker) marker.setLatLng(e.latlng);
-    else {
-      marker = L.marker(e.latlng, {
-        icon: L.divIcon({ html: `<div style="font-size:24px;">${FIXED_EMOJI}</div>` })
-      }).addTo(map);
-    }
-    updatePublishState();
-  });
-
-  /* PAYPAL */
-  paypal.Buttons({
-    createOrder: (data, actions) =>
-      actions.order.create({ purchase_units: [{ amount: { value: "10.00" } }] }),
-    onApprove: (data, actions) =>
-      actions.order.capture().then(() => {
-        canPublish = true;
-        promoAppliedCode = null;
-        codeStatus.textContent = "Payment completed.";
-        codeStatus.className = "status ok";
-        updatePublishState();
-      })
-  }).render("#paypal-container");
-
-  /* PROMO */
-  function applyPromoCode() {
-    const code = promoCode.value.trim().toUpperCase();
-    codeStatus.className = "status";
-
-    if (!PROMO_CODES.includes(code)) {
-      codeStatus.textContent = "Invalid code.";
-      codeStatus.className = "status bad";
-      return;
-    }
-    if (usedCodes.includes(code)) {
-      codeStatus.textContent = "Code already used.";
-      codeStatus.className = "status bad";
-      return;
+    function setStatus(el, text, kind) {
+      el.textContent = text || "";
+      el.className = "status" + (kind ? " " + kind : "");
     }
 
-    promoAppliedCode = code;
-    canPublish = true;
-    paypalContainer.style.display = "none";
-    codeStatus.textContent = "Code applied ✓";
-    codeStatus.className = "status ok";
-    updatePublishState();
-  }
+    function setLocationHint(ok) {
+      if (ok) {
+        locationHint.textContent = "📍 Location selected ✓";
+        locationHint.className = "hint ok";
+      } else {
+        locationHint.textContent = "📍 Tap the map to choose the location.";
+        locationHint.className = "hint bad";
+      }
+    }
 
-  function updatePublishState() {
-    publishBtn.disabled = !(canPublish && selectedLatLng);
-  }
+    /* ================= STATE ================= */
+    let selectedLatLng = null;
+    let marker = null;
 
-  async function publishMessage() {
-    const payload = {
-      name: name.value,
-      message: message.value,
-      country: country.value,
-      emoji: FIXED_EMOJI,
-      lat: selectedLatLng.lat,
-      lng: selectedLatLng.lng
-    };
+    let canPublish = false;       // true después de pago o código
+    let promoAppliedCode = null;  // si se aplicó promo
 
-    const res = await fetch(BACKEND_BASE_URL + SAVE_MESSAGE_PATH, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+    let usedCodes = JSON.parse(localStorage.getItem(USED_KEY) || "[]");
+
+    /* ================= MAP ================= */
+    const map = L.map("map", { zoomControl: false }).setView([20, 0], 2);
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png").addTo(map);
+
+    map.on("click", e => {
+      selectedLatLng = e.latlng;
+
+      if (marker) {
+        marker.setLatLng(e.latlng);
+      } else {
+        marker = L.marker(e.latlng, {
+          icon: L.divIcon({
+            html: `<div style="font-size:24px;">${FIXED_EMOJI}</div>`,
+            className: "",
+            iconSize: [24, 24],
+            iconAnchor: [12, 24]
+          })
+        }).addTo(map);
+      }
+
+      setLocationHint(true);
+      updatePublishState();
     });
 
-    if (!res.ok) {
-      alert("Error saving message.");
-      return;
+    /* ================= PAYPAL ================= */
+    paypal.Buttons({
+      createOrder: (data, actions) =>
+        actions.order.create({ purchase_units: [{ amount: { value: "10.00" } }] }),
+
+      onApprove: (data, actions) =>
+        actions.order.capture().then(() => {
+          canPublish = true;
+          promoAppliedCode = null;
+
+          setStatus(codeStatus, "Payment completed.", "ok");
+          paypalContainer.style.display = "block"; // se queda, o puedes ocultarlo si quieres
+          updatePublishState();
+        }),
+
+      onError: (err) => {
+        console.error("PayPal error:", err);
+        setStatus(codeStatus, "PayPal error. Try again.", "bad");
+      }
+    }).render("#paypal-container");
+
+    /* ================= PROMO ================= */
+    applyBtn.addEventListener("click", () => {
+      const code = (elPromo.value || "").trim().toUpperCase();
+      setStatus(codeStatus, "", "");
+
+      if (!code) {
+        setStatus(codeStatus, "Enter a code.", "bad");
+        return;
+      }
+
+      if (!PROMO_CODES.includes(code)) {
+        setStatus(codeStatus, "Invalid code.", "bad");
+        return;
+      }
+
+      if (usedCodes.includes(code)) {
+        setStatus(codeStatus, "Code already used.", "bad");
+        return;
+      }
+
+      promoAppliedCode = code;
+      canPublish = true;
+
+      // oculta PayPal si usó código
+      paypalContainer.style.display = "none";
+
+      setStatus(codeStatus, "Code applied ✓", "ok");
+      updatePublishState();
+    });
+
+    /* ================= PUBLISH ENABLE ================= */
+    function updatePublishState() {
+      // extra: no dejes publicar si falta ubicación
+      publishBtn.disabled = !(canPublish && selectedLatLng);
     }
 
-    if (promoAppliedCode) {
-      usedCodes.push(promoAppliedCode);
-      localStorage.setItem(USED_KEY, JSON.stringify(usedCodes));
+    /* ================= PUBLISH ================= */
+    publishBtn.addEventListener("click", publishMessage);
+
+    async function publishMessage() {
+      setStatus(saveStatus, "", "");
+
+      const name = (elName.value || "").trim();
+      const message = (elMessage.value || "").trim();
+      const country = (elCountry.value || "").trim();
+
+      if (!name || !message) {
+        setStatus(saveStatus, "Please fill Name and Message.", "bad");
+        return;
+      }
+
+      if (!selectedLatLng) {
+        setLocationHint(false);
+        alert("Please tap the map to choose the location.");
+        updatePublishState();
+        return;
+      }
+
+      // Payload: incluye promoCode si se usó (CLAVE si backend lo requiere)
+      const payload = {
+        name,
+        message,
+        country,
+        emoji: FIXED_EMOJI,
+        lat: selectedLatLng.lat,
+        lng: selectedLatLng.lng,
+        promoCode: promoAppliedCode || null
+      };
+
+      publishBtn.disabled = true;
+      setStatus(saveStatus, "Saving...", "");
+
+      let res;
+      try {
+        res = await fetch(BACKEND_BASE_URL + SAVE_MESSAGE_PATH, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+      } catch (e) {
+        console.error(e);
+        setStatus(saveStatus, "Network error saving message.", "bad");
+        publishBtn.disabled = false;
+        updatePublishState();
+        return;
+      }
+
+      // Lee el error real del backend
+      let bodyText = "";
+      let bodyJson = null;
+
+      try {
+        const ct = res.headers.get("content-type") || "";
+        if (ct.includes("application/json")) {
+          bodyJson = await res.json();
+        } else {
+          bodyText = await res.text();
+        }
+      } catch (_) {}
+
+      if (!res.ok) {
+        const detail = bodyJson?.detail || bodyJson?.error || bodyText || `HTTP ${res.status}`;
+        console.error("Save failed:", res.status, detail, bodyJson);
+        alert(`Error saving message (HTTP ${res.status}): ${detail}`);
+        setStatus(saveStatus, `Error saving message: ${detail}`, "bad");
+        publishBtn.disabled = false;
+        updatePublishState();
+        return;
+      }
+
+      // Marca promo como usada SOLO si el backend guardó bien
+      if (promoAppliedCode) {
+        usedCodes.push(promoAppliedCode);
+        localStorage.setItem(USED_KEY, JSON.stringify(usedCodes));
+      }
+
+      setStatus(saveStatus, "Message saved ✓", "ok");
+      alert("Message saved.");
+
+      location.reload();
     }
 
-    alert("Message saved.");
-    location.reload();
-  }
-</script>
-
+    // Estado inicial
+    updatePublishState();
+  </script>
 </body>
 </html>
